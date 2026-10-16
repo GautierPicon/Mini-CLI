@@ -1,7 +1,15 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+
+	"github.com/GautierPicon/mini-cli/internal/cli"
+)
 
 func main() {
-	fmt.Println("Mini CLI — use --help")
+	if err := cli.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }
