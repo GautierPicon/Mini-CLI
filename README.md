@@ -31,14 +31,24 @@ go build -o mini ./cmd/mini
 ./mini --help
 ```
 
-Set the engine + python for real inference:
+Set the engine + python for real inference (auto-detected when you run from
+Mini-CLI next to mini-llm, no exports needed for the 70M test):
 
 ```bash
+# auto: finds ../mini-llm/.venv/bin/python and ../mini-llm/src + python/mini_engine.py
+# manual override only if auto-detect fails:
 export MINI_ENGINE_PATH="$PWD/python/mini_engine.py"
 export MINI_PYTHON="$PWD/../mini-llm/.venv/bin/python"
 # optional:
 export MINI_MODELS_DIR="$HOME/.local/share/mini/models"  # linux default
 export MINI_DEFAULT_MODEL="mini-llm-70m"
+```
+
+Try the 70M assistant (native `.pt`, no install needed):
+
+```bash
+./mini run --model ../mini-llm/models/16k "What is 2+2?" --max-tokens 32
+./mini chat --model ../mini-llm/models/16k
 ```
 
 macOS defaults: `~/Library/Application Support/mini/models`, config `~/Library/Application Support/mini/config.json`.
