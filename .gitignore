@@ -1,0 +1,4 @@
+/mini
+/dist/
+*.log
+.DS_Store
