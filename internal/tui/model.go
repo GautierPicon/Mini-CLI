@@ -136,7 +136,7 @@ func (m *Model) render() {
 		}
 	}
 	if m.loading {
-		b.WriteString(m.spinner.View() + " generating… (loading, not reasoning)\n")
+		b.WriteString(m.spinner.View() + " generating…\n")
 	}
 	if m.errMsg != "" {
 		b.WriteString(wordWrap(ErrorStyle.Render("Error: "+m.errMsg), width) + "\n")
