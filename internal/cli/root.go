@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/spf13/cobra"
 
 	"github.com/GautierPicon/mini-cli/internal/chat"
 	"github.com/GautierPicon/mini-cli/internal/config"
@@ -19,7 +19,6 @@ import (
 	"github.com/GautierPicon/mini-cli/internal/tui"
 )
 
-// Execute is the single entrypoint used by cmd/mini/main.go.
 func Execute() error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -43,8 +42,6 @@ Inference runs offline once model files are installed. No account, no API key.`,
 	root.AddCommand(newChatCmd(cfg), newRunCmd(cfg), newModelsCmd(cfg))
 	return root
 }
-
-// --- shared helpers ---
 
 func resolveGenerator(cfg config.Config, modelFlag string, useMock bool) (inference.Generator, string, func(), error) {
 	if useMock {
@@ -92,8 +89,6 @@ func generationOptions(cfg config.Config, maxTokens int, temperature float64) in
 	return opts
 }
 
-// --- chat ---
-
 func newChatCmd(cfg config.Config) *cobra.Command {
 	var modelFlag string
 	var maxTokens int
@@ -126,8 +121,6 @@ func newChatCmd(cfg config.Config) *cobra.Command {
 	return cmd
 }
 
-// --- run ---
-
 func newRunCmd(cfg config.Config) *cobra.Command {
 	var modelFlag string
 	var maxTokens int
@@ -149,7 +142,6 @@ func newRunCmd(cfg config.Config) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			// stdout: answer only, for scripts. Diagnostics go to stderr.
 			fmt.Println(strings.TrimSpace(text))
 			return nil
 		},
@@ -160,8 +152,6 @@ func newRunCmd(cfg config.Config) *cobra.Command {
 	cmd.Flags().BoolVar(&mock, "mock", false, "use deterministic fake replies (dev only)")
 	return cmd
 }
-
-// --- models ---
 
 func newModelsCmd(cfg config.Config) *cobra.Command {
 	cmd := &cobra.Command{Use: "models", Short: "Manage installed models"}

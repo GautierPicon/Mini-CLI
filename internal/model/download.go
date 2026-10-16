@@ -13,8 +13,6 @@ import (
 	"time"
 )
 
-// Pull downloads a model from a trusted registry base URL into the registry.
-// No pull happens without an explicit allowlisted registry URL and a manifest.
 func Pull(ctx context.Context, reg *Registry, id, registryURL string, client *http.Client) (string, error) {
 	if err := ValidateID(id); err != nil {
 		return "", err
@@ -84,7 +82,7 @@ func downloadFile(ctx context.Context, client *http.Client, url, dest string, wa
 	if filepath.IsAbs(clean) || len(clean) >= 2 && clean[:2] == ".." {
 		return fmt.Errorf("unsafe manifest path %q", want.Path)
 	}
-	const maxBytes = 2 << 30 // 2 GiB per file
+	const maxBytes = 2 << 30
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return err
@@ -117,7 +115,6 @@ func downloadFile(ctx context.Context, client *http.Client, url, dest string, wa
 		return fmt.Errorf("size mismatch for %s: got %d, want %d", want.Path, n, want.Size)
 	}
 	if want.SHA256 != "" && hex.EncodeToString(h.Sum(nil)) != want.SHA256 {
-		// case-insensitive compare done by caller normally; keep strict here then retry message
 		return fmt.Errorf("sha256 mismatch for %s (incomplete or corrupt download)", want.Path)
 	}
 	return nil

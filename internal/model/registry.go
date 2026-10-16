@@ -12,7 +12,6 @@ import (
 	"strings"
 )
 
-// Manifest describes an installed model. Only fields present on disk are shown.
 type Manifest struct {
 	ID           string      `json:"id"`
 	Name         string      `json:"name,omitempty"`
@@ -25,14 +24,12 @@ type Manifest struct {
 	Source       string      `json:"source,omitempty"`
 }
 
-// FileEntry is one tracked file with its expected hash.
 type FileEntry struct {
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
 	Size   int64  `json:"size,omitempty"`
 }
 
-// ModelInfo is what `models list/info` display.
 type ModelInfo struct {
 	ID          string
 	Path        string
@@ -40,18 +37,16 @@ type ModelInfo struct {
 	Valid       bool
 	SizeBytes   int64
 	Manifest    *Manifest
-	Format      string // "hf", "native-pt", "unknown"
+	Format      string
 	Detail      string
 }
 
-// Registry scans a models directory. No network, no remote calls.
 type Registry struct {
 	Dir string
 }
 
 func NewRegistry(dir string) *Registry { return &Registry{Dir: dir} }
 
-// List returns installed models (subdirectories). Never lists remote models.
 func (r *Registry) List() ([]ModelInfo, error) {
 	entries, err := os.ReadDir(r.Dir)
 	if err != nil {
@@ -67,7 +62,6 @@ func (r *Registry) List() ([]ModelInfo, error) {
 		}
 		info, err := r.Inspect(filepath.Join(r.Dir, e.Name()))
 		if err != nil {
-			// Show broken dirs instead of hiding them.
 			out = append(out, ModelInfo{ID: e.Name(), Path: filepath.Join(r.Dir, e.Name()), Detail: "unreadable: " + err.Error()})
 			continue
 		}
@@ -77,7 +71,6 @@ func (r *Registry) List() ([]ModelInfo, error) {
 	return out, nil
 }
 
-// Resolve maps --model <id|path> to a directory on disk.
 func (r *Registry) Resolve(idOrPath string) (string, error) {
 	if idOrPath == "" {
 		return "", fmt.Errorf("no model specified")
@@ -107,7 +100,6 @@ func (r *Registry) Resolve(idOrPath string) (string, error) {
 	return candidate, nil
 }
 
-// Inspect reads manifest.json when present and detects the on-disk format.
 func (r *Registry) Inspect(dir string) (*ModelInfo, error) {
 	st, err := os.Stat(dir)
 	if err != nil {
@@ -152,7 +144,6 @@ func isPath(s string) bool {
 	return strings.Contains(s, "/") || strings.Contains(s, string(os.PathSeparator)) || strings.HasPrefix(s, ".")
 }
 
-// ValidateID prevents path traversal and writes outside the models dir.
 func ValidateID(id string) error {
 	if id == "" || id == "." || id == ".." {
 		return fmt.Errorf("invalid model id %q", id)
@@ -196,7 +187,6 @@ func dirSize(dir string) int64 {
 	return total
 }
 
-// VerifyManifest checks sizes and sha256 of tracked files.
 func VerifyManifest(dir string, m *Manifest) error {
 	for _, f := range m.Files {
 		clean := filepath.Clean(f.Path)

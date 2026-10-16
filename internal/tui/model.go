@@ -18,7 +18,6 @@ type answerMsg struct {
 	err  error
 }
 
-// Model is the Bubble Tea chat UI. Cobra owns flags, inference owns generation.
 type Model struct {
 	title    string
 	conv     *chat.Conversation
@@ -97,7 +96,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.render()
 				return m, nil
 			}
-			// optimistic user echo
 			m.conv.History = append(m.conv.History, inference.Message{Role: "user", Content: q})
 			m.loading = true
 			m.render()
@@ -109,7 +107,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if err == nil {
 					m.conv.History = append(history, inference.Message{Role: "assistant", Content: strings.TrimSpace(text)})
 				} else {
-					// roll back optimistic user message on error
 					m.conv.History = history[:len(history)-1]
 				}
 				return answerMsg{text: text, err: err}

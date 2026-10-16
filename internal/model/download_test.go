@@ -17,13 +17,11 @@ func newTestServer(t *testing.T, manifest Manifest, files map[string][]byte) *ht
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// manifest
 		if len(r.URL.Path) > 0 && endsWith(r.URL.Path, "/manifest.json") {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(manifest)
 			return
 		}
-		// files: /<id>/<path>
 		parts := splitPath(r.URL.Path)
 		if len(parts) < 2 {
 			http.NotFound(w, r)

@@ -10,13 +10,6 @@ import (
 	"sync"
 )
 
-// LocalGenerator talks to python/mini_engine.py over JSON lines on stdio.
-// Protocol (v1):
-// -> {"cmd":"load","model_dir":"...","device":"auto"}
-// <- {"ok":true,"model":"...","ctx":512}
-// -> {"cmd":"generate","messages":[...],"max_tokens":256,"temperature":0.5,"top_k":40,"repetition_penalty":1.15}
-// <- {"ok":true,"text":"..."}
-// Logs from the engine go to stderr and never pollute stdout.
 type LocalGenerator struct {
 	modelDir   string
 	enginePath string
@@ -48,7 +41,6 @@ type engineResponse struct {
 	Error string `json:"error,omitempty"`
 }
 
-// NewLocalGenerator starts the engine and loads modelDir.
 func NewLocalGenerator(modelDir, enginePath, pythonBin string) (*LocalGenerator, error) {
 	if modelDir == "" {
 		return nil, fmt.Errorf("model directory is required")
@@ -63,7 +55,6 @@ func NewLocalGenerator(modelDir, enginePath, pythonBin string) (*LocalGenerator,
 	if pythonBin == "" {
 		pythonBin = ResolvePythonBin()
 	}
-	// uv-managed python also works: allow MINI_PYTHON override already handled by caller.
 	g := &LocalGenerator{modelDir: modelDir, enginePath: enginePath, pythonBin: pythonBin}
 	if err := g.start(); err != nil {
 		return nil, err
@@ -131,7 +122,6 @@ func (g *LocalGenerator) nextResponseLocked() (engineResponse, error) {
 	return resp, nil
 }
 
-// Generate sends one blocking request. Safe for sequential use from the TUI via tea.Cmd.
 func (g *LocalGenerator) Generate(messages []Message, options GenerationOptions) (string, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -171,7 +161,6 @@ func (g *LocalGenerator) Generate(messages []Message, options GenerationOptions)
 	return resp.Text, nil
 }
 
-// Close stops the engine. No orphan process is left behind.
 func (g *LocalGenerator) Close() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -187,8 +176,6 @@ func (g *LocalGenerator) Close() error {
 	return nil
 }
 
-// ResolvePythonBin finds a Python able to run the engine.
-// Order: MINI_PYTHON env, sibling mini-llm uv venv, then PATH python3.
 func ResolvePythonBin() string {
 	if p := os.Getenv("MINI_PYTHON"); p != "" {
 		return p
@@ -220,18 +207,14 @@ func candidateVenvPythons() []string {
 		add(filepath.Join(cwd, "..", "Mini", "mini-llm", ".venv", "bin", "python"))
 		add(filepath.Join(cwd, "..", "mini-llm", ".venv", "bin", "python3"))
 	}
-	// absolute fallback for this workstation layout
 	add("/Users/gautierpicon/Projets/Mini/mini-llm/.venv/bin/python")
 	return out
 }
 
-// findMiniLLMSrc locates mini-llm/src so the engine can `import mini_llm`
-// even when the package is not pip-installed (uv venv without editable install).
 func findMiniLLMSrc(enginePath string) string {
 	candidates := []string{}
 	if enginePath != "" {
 		abs, _ := filepath.Abs(enginePath)
-		// <repo>/Mini-CLI/python/mini_engine.py -> <repo>/mini-llm/src
 		candidates = append(candidates,
 			filepath.Join(filepath.Dir(abs), "..", "..", "mini-llm", "src"),
 			filepath.Join(filepath.Dir(abs), "..", "mini-llm", "src"),
@@ -277,8 +260,6 @@ func prependPythonPath(env []string, src string) []string {
 	return append(env, key+"="+src)
 }
 
-// ResolveEnginePath finds python/mini_engine.py relative to the executable,
-// the current directory, or MINI_ENGINE_PATH.
 func ResolveEnginePath() (string, error) {
 	if p := os.Getenv("MINI_ENGINE_PATH"); p != "" {
 		if _, statErr := os.Stat(p); statErr == nil {

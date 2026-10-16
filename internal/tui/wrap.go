@@ -2,8 +2,6 @@ package tui
 
 import "strings"
 
-// wordWrap wraps s at width columns, preserving existing newlines.
-// Long words are hard-broken. Width < 10 is clamped to 10.
 func wordWrap(s string, width int) string {
 	if width < 10 {
 		width = 10
@@ -19,7 +17,6 @@ func wordWrap(s string, width int) string {
 		words := strings.Fields(para)
 		lineLen := 0
 		for wi, w := range words {
-			// hard-break words longer than width
 			for len(w) > width {
 				if lineLen > 0 {
 					out.WriteString("\n")
@@ -45,10 +42,8 @@ func wordWrap(s string, width int) string {
 	return out.String()
 }
 
-// wrapMessage renders one chat turn with a styled prefix, wrapping the body
-// to width. Continuation lines are indented to align under the content.
 func wrapMessage(prefix, body string, width int) string {
-	const prefixWidth = 6 // "You > " / "AI  > "
+	const prefixWidth = 6
 	bodyWidth := width - prefixWidth
 	if bodyWidth < 10 {
 		bodyWidth = 10

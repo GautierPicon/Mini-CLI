@@ -2,8 +2,6 @@ package inference
 
 import "fmt"
 
-// MockGenerator returns deterministic replies for dev and tests.
-// It must never be presented as the real model.
 type MockGenerator struct {
 	Prefix string
 	Calls  int

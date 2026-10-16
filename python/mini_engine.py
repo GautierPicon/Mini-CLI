@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-"""Mini local inference engine (sidecar for the Go CLI).
-
-Protocol: JSON lines on stdin/stdout (v1). Logs go to stderr only.
-  -> {"cmd": "load", "model_dir": "...", "device": "auto"}
-  <- {"ok": true, "model": "...", "ctx": 512}
-  -> {"cmd": "generate", "messages": [{"role":"user","content":"..."}], "max_tokens": 256, "temperature": 0.5, "top_k": 40, "repetition_penalty": 1.15}
-  <- {"ok": true, "text": "..."}
-  -> {"cmd": "quit"}
-
-Supports two on-disk formats:
-  - native .pt: directory with mini-llm-*.pt + tok.json (needs mini_llm importable)
-  - hf: directory with config.json + model.safetensors + tokenizer.json (transformers)
-
-Conversation format matches mini-llm training exactly: "User: ...\\nAssistant: ...\\n".
-"""
 
 import glob
 import json
@@ -21,13 +6,10 @@ import os
 import sys
 from pathlib import Path
 
-
 def log(*a):
     print(*a, file=sys.stderr, flush=True)
 
-
 STATE = {"model": None, "tok": None, "eos": None, "ctx": 512, "kind": None, "dev": "cpu"}
-
 
 def format_conversation(messages):
     parts = []
@@ -41,7 +23,6 @@ def format_conversation(messages):
     parts.append("Assistant:")
     return "".join(parts)
 
-
 def detect_model_dir(d: Path):
     if (d / "model.safetensors").exists() and (d / "config.json").exists():
         return "hf"
@@ -50,7 +31,6 @@ def detect_model_dir(d: Path):
     if pts and (d / "tok.json").exists():
         return "native-pt"
     return "unknown"
-
 
 def load_native(model_dir: Path, device: str):
     try:
@@ -63,7 +43,6 @@ def load_native(model_dir: Path, device: str):
             f"({e})"
         )
     dev = resolve_device(device if device else "auto")
-    # prefer assistant checkpoint, like chat.py
     cands = sorted(model_dir.glob("mini-llm-assistant-*.pt"))
     cands = [c for c in cands if not c.name.endswith(".state.pt")]
     if cands:
@@ -80,7 +59,6 @@ def load_native(model_dir: Path, device: str):
     eos = tok.token_to_id("<eos>")
     STATE.update(model=model, tok=tok, eos=eos, ctx=cfg.ctx, kind="native-pt", dev=dev)
     return ckpt.name, cfg.ctx
-
 
 def load_hf(model_dir: Path, device: str):
     import torch
@@ -107,7 +85,6 @@ def load_hf(model_dir: Path, device: str):
     STATE.update(model=model, tok=tok, eos=eos, ctx=ctx, kind="hf", dev=dev)
     return model_dir.name, ctx
 
-
 def do_load(model_dir: str, device: str):
     d = Path(model_dir)
     if not d.is_dir():
@@ -120,7 +97,6 @@ def do_load(model_dir: str, device: str):
     raise RuntimeError(
         f"unknown model format in {model_dir}: need (config.json + model.safetensors) or (*.pt + tok.json)"
     )
-
 
 def do_generate(messages, max_tokens, temperature, top_k, rep_penalty):
     if STATE["model"] is None:
@@ -174,11 +150,9 @@ def do_generate(messages, max_tokens, temperature, top_k, rep_penalty):
         except TypeError:
             text = tok.decode(gen)
         text = text.strip()
-        # safety net if the fast tokenizer still emits the literal
         if text.endswith("<eos>"):
             text = text[: -len("<eos>")].strip()
         return text
-
 
 def main():
     for line in sys.stdin:
@@ -214,7 +188,6 @@ def main():
         except Exception as e:
             log(f"engine error: {e}")
             print(json.dumps({"ok": False, "error": str(e)}), flush=True)
-
 
 if __name__ == "__main__":
     main()

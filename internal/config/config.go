@@ -8,7 +8,6 @@ import (
 	"runtime"
 )
 
-// Config holds user preferences. No API keys, no remote backend.
 type Config struct {
 	DefaultModel string  `json:"default_model,omitempty"`
 	ModelsDir    string  `json:"models_dir,omitempty"`
@@ -18,7 +17,6 @@ type Config struct {
 	RegistryURL  string  `json:"registry_url,omitempty"`
 }
 
-// Defaults returns a config with OS-specific paths and chat.py defaults.
 func Defaults() Config {
 	return Config{
 		ModelsDir:   DefaultModelsDir(),
@@ -27,7 +25,6 @@ func Defaults() Config {
 	}
 }
 
-// DefaultModelsDir is OS-specific and overridable via MINI_MODELS_DIR.
 func DefaultModelsDir() string {
 	if v := os.Getenv("MINI_MODELS_DIR"); v != "" {
 		return v
@@ -41,7 +38,7 @@ func DefaultModelsDir() string {
 			return filepath.Join(appdata, "mini", "models")
 		}
 		return filepath.Join(home, "AppData", "Roaming", "mini", "models")
-	default: // linux and others: XDG
+	default:
 		if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
 			return filepath.Join(xdg, "mini", "models")
 		}
@@ -49,7 +46,6 @@ func DefaultModelsDir() string {
 	}
 }
 
-// ConfigFilePath is OS-specific and overridable via MINI_CONFIG.
 func ConfigFilePath() string {
 	if v := os.Getenv("MINI_CONFIG"); v != "" {
 		return v
@@ -71,7 +67,6 @@ func ConfigFilePath() string {
 	}
 }
 
-// Load reads the JSON config file, applying env overrides. Missing file => defaults.
 func Load() (Config, error) {
 	cfg := Defaults()
 	path := ConfigFilePath()
@@ -110,7 +105,6 @@ func applyEnv(cfg Config) Config {
 	return cfg
 }
 
-// Save writes the config atomically.
 func Save(cfg Config) error {
 	path := ConfigFilePath()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
