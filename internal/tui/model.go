@@ -53,6 +53,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.viewport.Width = msg.Width - 4
 		m.viewport.Height = msg.Height - 6
+		m.render()
 		return m, nil
 	case answerMsg:
 		m.loading = false
@@ -67,6 +68,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.loading {
 			var cmd tea.Cmd
 			m.spinner, cmd = m.spinner.Update(msg)
+			m.render()
 			return m, cmd
 		}
 		return m, nil
@@ -121,19 +123,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) render() {
+	width := m.viewport.Width
+	if width <= 0 {
+		width = 80
+	}
 	var b strings.Builder
 	for _, msg := range m.conv.History {
 		if msg.Role == "user" {
-			b.WriteString(UserStyle.Render("You > ") + msg.Content + "\n\n")
+			b.WriteString(wrapMessage(UserStyle.Render("You > "), msg.Content, width) + "\n\n")
 		} else {
-			b.WriteString(AIStyle.Render("AI  > ") + msg.Content + "\n\n")
+			b.WriteString(wrapMessage(AIStyle.Render("AI  > "), msg.Content, width) + "\n\n")
 		}
 	}
 	if m.loading {
-		b.WriteString(m.spinner.View() + " thinking…\n")
+		b.WriteString(m.spinner.View() + " generating… (loading, not reasoning)\n")
 	}
 	if m.errMsg != "" {
-		b.WriteString(ErrorStyle.Render("Error: "+m.errMsg) + "\n")
+		b.WriteString(wordWrap(ErrorStyle.Render("Error: "+m.errMsg), width) + "\n")
 	}
 	m.viewport.SetContent(b.String())
 	m.viewport.GotoBottom()
