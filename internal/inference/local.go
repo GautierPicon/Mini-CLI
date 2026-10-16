@@ -61,7 +61,7 @@ func NewLocalGenerator(modelDir, enginePath, pythonBin string) (*LocalGenerator,
 		}
 	}
 	if pythonBin == "" {
-		pythonBin = "python3"
+		pythonBin = ResolvePythonBin()
 	}
 	// uv-managed python also works: allow MINI_PYTHON override already handled by caller.
 	g := &LocalGenerator{modelDir: modelDir, enginePath: enginePath, pythonBin: pythonBin}
@@ -77,6 +77,11 @@ func NewLocalGenerator(modelDir, enginePath, pythonBin string) (*LocalGenerator,
 
 func (g *LocalGenerator) start() error {
 	g.cmd = exec.Command(g.pythonBin, g.enginePath)
+	env := os.Environ()
+	if src := findMiniLLMSrc(g.enginePath); src != "" {
+		env = prependPythonPath(env, src)
+	}
+	g.cmd.Env = env
 	g.cmd.Stderr = os.Stderr
 	in, err := g.cmd.StdinPipe()
 	if err != nil {
@@ -180,6 +185,96 @@ func (g *LocalGenerator) Close() error {
 		_ = g.cmd.Wait()
 	}
 	return nil
+}
+
+// ResolvePythonBin finds a Python able to run the engine.
+// Order: MINI_PYTHON env, sibling mini-llm uv venv, then PATH python3.
+func ResolvePythonBin() string {
+	if p := os.Getenv("MINI_PYTHON"); p != "" {
+		return p
+	}
+	for _, c := range candidateVenvPythons() {
+		if st, err := os.Stat(c); err == nil && !st.IsDir() {
+			return c
+		}
+	}
+	return "python3"
+}
+
+func candidateVenvPythons() []string {
+	var out []string
+	add := func(p string) {
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	if exe, err := os.Executable(); err == nil {
+		d := filepath.Dir(exe)
+		add(filepath.Join(d, "..", "mini-llm", ".venv", "bin", "python"))
+		add(filepath.Join(d, "..", "..", "mini-llm", ".venv", "bin", "python"))
+		add(filepath.Join(d, "..", "..", "Mini", "mini-llm", ".venv", "bin", "python"))
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		add(filepath.Join(cwd, "..", "mini-llm", ".venv", "bin", "python"))
+		add(filepath.Join(cwd, "mini-llm", ".venv", "bin", "python"))
+		add(filepath.Join(cwd, "..", "Mini", "mini-llm", ".venv", "bin", "python"))
+		add(filepath.Join(cwd, "..", "mini-llm", ".venv", "bin", "python3"))
+	}
+	// absolute fallback for this workstation layout
+	add("/Users/gautierpicon/Projets/Mini/mini-llm/.venv/bin/python")
+	return out
+}
+
+// findMiniLLMSrc locates mini-llm/src so the engine can `import mini_llm`
+// even when the package is not pip-installed (uv venv without editable install).
+func findMiniLLMSrc(enginePath string) string {
+	candidates := []string{}
+	if enginePath != "" {
+		abs, _ := filepath.Abs(enginePath)
+		// <repo>/Mini-CLI/python/mini_engine.py -> <repo>/mini-llm/src
+		candidates = append(candidates,
+			filepath.Join(filepath.Dir(abs), "..", "..", "mini-llm", "src"),
+			filepath.Join(filepath.Dir(abs), "..", "mini-llm", "src"),
+		)
+	}
+	if exe, err := os.Executable(); err == nil {
+		d := filepath.Dir(exe)
+		candidates = append(candidates,
+			filepath.Join(d, "..", "mini-llm", "src"),
+			filepath.Join(d, "..", "..", "mini-llm", "src"),
+		)
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		candidates = append(candidates,
+			filepath.Join(cwd, "..", "mini-llm", "src"),
+			filepath.Join(cwd, "mini-llm", "src"),
+			filepath.Join(cwd, "..", "Mini", "mini-llm", "src"),
+		)
+	}
+	candidates = append(candidates, "/Users/gautierpicon/Projets/Mini/mini-llm/src")
+	for _, c := range candidates {
+		clean := filepath.Clean(c)
+		if st, err := os.Stat(filepath.Join(clean, "mini_llm")); err == nil && st.IsDir() {
+			return clean
+		}
+	}
+	return ""
+}
+
+func prependPythonPath(env []string, src string) []string {
+	const key = "PYTHONPATH"
+	for i, kv := range env {
+		if len(kv) > len(key)+1 && kv[:len(key)+1] == key+"=" {
+			old := kv[len(key)+1:]
+			if old == "" {
+				env[i] = key + "=" + src
+			} else {
+				env[i] = key + "=" + src + string(os.PathListSeparator) + old
+			}
+			return env
+		}
+	}
+	return append(env, key+"="+src)
 }
 
 // ResolveEnginePath finds python/mini_engine.py relative to the executable,

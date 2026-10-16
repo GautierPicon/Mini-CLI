@@ -63,13 +63,10 @@ func resolveGenerator(cfg config.Config, modelFlag string, useMock bool) (infere
 		return nil, "", func() {}, err
 	}
 	pythonBin := os.Getenv("MINI_PYTHON")
-	if pythonBin == "" {
-		pythonBin = "python3"
-	}
 	enginePath := cfg.EnginePath
 	gen, err := inference.NewLocalGenerator(dir, enginePath, pythonBin)
 	if err != nil {
-		return nil, "", func() {}, fmt.Errorf("cannot start local engine: %w\nPrerequisites: python3, torch, tokenizers%s", err, engineHint())
+		return nil, "", func() {}, fmt.Errorf("cannot start local engine: %w\nTried python=%q. Fix: export MINI_PYTHON=<mini-llm venv python> (e.g. ../mini-llm/.venv/bin/python)%s", err, inference.ResolvePythonBin(), engineHint())
 	}
 	return gen, dir, func() { _ = gen.Close() }, nil
 }
