@@ -1,0 +1,215 @@
+package inference
+
+import (
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sync"
+)
+
+// LocalGenerator talks to python/mini_engine.py over JSON lines on stdio.
+// Protocol (v1):
+// -> {"cmd":"load","model_dir":"...","device":"auto"}
+// <- {"ok":true,"model":"...","ctx":512}
+// -> {"cmd":"generate","messages":[...],"max_tokens":256,"temperature":0.5,"top_k":40,"repetition_penalty":1.15}
+// <- {"ok":true,"text":"..."}
+// Logs from the engine go to stderr and never pollute stdout.
+type LocalGenerator struct {
+	modelDir   string
+	enginePath string
+	pythonBin  string
+
+	mu     sync.Mutex
+	cmd    *exec.Cmd
+	stdin  *json.Encoder
+	stdout *bufio.Scanner
+	closed bool
+}
+
+type engineRequest struct {
+	Cmd               string    `json:"cmd"`
+	ModelDir          string    `json:"model_dir,omitempty"`
+	Device            string    `json:"device,omitempty"`
+	Messages          []Message `json:"messages,omitempty"`
+	MaxTokens         int       `json:"max_tokens,omitempty"`
+	Temperature       float64   `json:"temperature,omitempty"`
+	TopK              int       `json:"top_k,omitempty"`
+	RepetitionPenalty float64   `json:"repetition_penalty,omitempty"`
+}
+
+type engineResponse struct {
+	Ok    bool   `json:"ok"`
+	Text  string `json:"text,omitempty"`
+	Model string `json:"model,omitempty"`
+	Ctx   int    `json:"ctx,omitempty"`
+	Error string `json:"error,omitempty"`
+}
+
+// NewLocalGenerator starts the engine and loads modelDir.
+func NewLocalGenerator(modelDir, enginePath, pythonBin string) (*LocalGenerator, error) {
+	if modelDir == "" {
+		return nil, fmt.Errorf("model directory is required")
+	}
+	if enginePath == "" {
+		var err error
+		enginePath, err = ResolveEnginePath()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if pythonBin == "" {
+		pythonBin = "python3"
+	}
+	// uv-managed python also works: allow MINI_PYTHON override already handled by caller.
+	g := &LocalGenerator{modelDir: modelDir, enginePath: enginePath, pythonBin: pythonBin}
+	if err := g.start(); err != nil {
+		return nil, err
+	}
+	if err := g.load(); err != nil {
+		_ = g.Close()
+		return nil, err
+	}
+	return g, nil
+}
+
+func (g *LocalGenerator) start() error {
+	g.cmd = exec.Command(g.pythonBin, g.enginePath)
+	g.cmd.Stderr = os.Stderr
+	in, err := g.cmd.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("engine stdin: %w", err)
+	}
+	outPipe, err := g.cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("engine stdout: %w", err)
+	}
+	if err := g.cmd.Start(); err != nil {
+		return fmt.Errorf("start engine %s: %w (install python deps: torch, tokenizers, transformers)", g.enginePath, err)
+	}
+	g.stdin = json.NewEncoder(in)
+	g.stdout = bufio.NewScanner(outPipe)
+	g.stdout.Buffer(make([]byte, 1024*1024), 16*1024*1024)
+	return nil
+}
+
+func (g *LocalGenerator) load() error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if err := g.stdin.Encode(engineRequest{Cmd: "load", ModelDir: g.modelDir, Device: "auto"}); err != nil {
+		return fmt.Errorf("engine load request: %w", err)
+	}
+	resp, err := g.nextResponseLocked()
+	if err != nil {
+		return err
+	}
+	if !resp.Ok {
+		return fmt.Errorf("engine load failed: %s", resp.Error)
+	}
+	return nil
+}
+
+func (g *LocalGenerator) nextResponseLocked() (engineResponse, error) {
+	if !g.stdout.Scan() {
+		err := g.stdout.Err()
+		if err == nil {
+			err = fmt.Errorf("engine exited (stderr may contain the cause)")
+		}
+		return engineResponse{}, fmt.Errorf("engine read: %w", err)
+	}
+	var resp engineResponse
+	if err := json.Unmarshal(g.stdout.Bytes(), &resp); err != nil {
+		return engineResponse{}, fmt.Errorf("engine bad JSON: %w", err)
+	}
+	return resp, nil
+}
+
+// Generate sends one blocking request. Safe for sequential use from the TUI via tea.Cmd.
+func (g *LocalGenerator) Generate(messages []Message, options GenerationOptions) (string, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.closed {
+		return "", fmt.Errorf("engine is closed")
+	}
+	if options.MaxTokens <= 0 {
+		options.MaxTokens = 256
+	}
+	req := engineRequest{
+		Cmd:               "generate",
+		Messages:          messages,
+		MaxTokens:         options.MaxTokens,
+		Temperature:       options.Temperature,
+		TopK:              options.TopK,
+		RepetitionPenalty: options.RepetitionPenalty,
+	}
+	if req.Temperature == 0 {
+		req.Temperature = 0.5
+	}
+	if req.TopK == 0 {
+		req.TopK = 40
+	}
+	if req.RepetitionPenalty == 0 {
+		req.RepetitionPenalty = 1.15
+	}
+	if err := g.stdin.Encode(req); err != nil {
+		return "", fmt.Errorf("engine generate request: %w", err)
+	}
+	resp, err := g.nextResponseLocked()
+	if err != nil {
+		return "", err
+	}
+	if !resp.Ok {
+		return "", fmt.Errorf("generation failed: %s", resp.Error)
+	}
+	return resp.Text, nil
+}
+
+// Close stops the engine. No orphan process is left behind.
+func (g *LocalGenerator) Close() error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.closed {
+		return nil
+	}
+	g.closed = true
+	_ = g.stdin.Encode(engineRequest{Cmd: "quit"})
+	if g.cmd != nil && g.cmd.Process != nil {
+		_ = g.cmd.Process.Kill()
+		_ = g.cmd.Wait()
+	}
+	return nil
+}
+
+// ResolveEnginePath finds python/mini_engine.py relative to the executable,
+// the current directory, or MINI_ENGINE_PATH.
+func ResolveEnginePath() (string, error) {
+	if p := os.Getenv("MINI_ENGINE_PATH"); p != "" {
+		if _, statErr := os.Stat(p); statErr == nil {
+			return p, nil
+		} else {
+			return "", fmt.Errorf("MINI_ENGINE_PATH %q not found: %w", p, statErr)
+		}
+	}
+	candidates := []string{}
+	if exe, err := os.Executable(); err == nil {
+		candidates = append(candidates,
+			filepath.Join(filepath.Dir(exe), "mini_engine.py"),
+			filepath.Join(filepath.Dir(exe), "..", "python", "mini_engine.py"),
+			filepath.Join(filepath.Dir(exe), "..", "..", "python", "mini_engine.py"),
+		)
+	}
+	candidates = append(candidates,
+		"python/mini_engine.py",
+		"Mini-CLI/python/mini_engine.py",
+		"../Mini-CLI/python/mini_engine.py",
+	)
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			abs, _ := filepath.Abs(c)
+			return abs, nil
+		}
+	}
+	return "", fmt.Errorf("mini_engine.py not found (set MINI_ENGINE_PATH). Searched near the mini binary and ./python/mini_engine.py")
+}
