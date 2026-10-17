@@ -14,7 +14,7 @@ Real inference is done by `python/mini_engine.py` (PyTorch + `mini_llm`), spawne
 child process over JSON lines on stdio. The Go binary never reimplements the network
 and never converts weights blindly.
 
-**Full documentation: [../documentation/Mini-CLI](../documentation/Mini-CLI/README.md)**
+**Full documentation: [../Documentation/Mini-CLI](../Documentation/Mini-CLI/README.md)**
 
 ## Quickstart
 
@@ -44,4 +44,4 @@ go build -o mini ./cmd/mini
 ```
 
 Usage, configuration file, paths, inference details and model storage live in the
-[documentation](../documentation/Mini-CLI/README.md).
+[documentation](../Documentation/Mini-CLI/README.md).
