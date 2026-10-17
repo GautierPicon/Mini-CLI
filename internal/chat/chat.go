@@ -26,7 +26,9 @@ func (c *Conversation) Send(question string) (string, error) {
 		return "", fmt.Errorf("empty question")
 	}
 	c.History = append(c.History, inference.Message{Role: "user", Content: q})
-	answer, err := c.Generator.Generate(c.History, c.Options)
+	// History is a display transcript only: the model never sees earlier turns
+	// (it anchors on them and degrades), so each question is generated alone.
+	answer, err := c.Generator.Generate([]inference.Message{{Role: "user", Content: q}}, c.Options)
 	if err != nil {
 		c.History = c.History[:len(c.History)-1]
 		return "", err

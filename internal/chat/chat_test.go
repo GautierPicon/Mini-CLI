@@ -6,6 +6,36 @@ import (
 	"github.com/GautierPicon/mini-cli/internal/inference"
 )
 
+type recordingGenerator struct {
+	calls [][]inference.Message
+}
+
+func (r *recordingGenerator) Generate(messages []inference.Message, _ inference.GenerationOptions) (string, error) {
+	r.calls = append(r.calls, messages)
+	return "answer", nil
+}
+
+func (r *recordingGenerator) Close() error { return nil }
+
+func TestSendSendsOnlyCurrentQuestion(t *testing.T) {
+	g := &recordingGenerator{}
+	c := New(g, inference.DefaultOptions())
+	for _, q := range []string{"first", "second"} {
+		if _, err := c.Send(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(g.calls) != 2 {
+		t.Fatalf("expected 2 generate calls, got %d", len(g.calls))
+	}
+	if len(g.calls[1]) != 1 || g.calls[1][0].Content != "second" {
+		t.Fatalf("second call must carry only the current question, got %+v", g.calls[1])
+	}
+	if len(c.History) != 4 || c.History[2].Content != "second" || c.History[3].Content != "answer" {
+		t.Fatalf("history should stay a transcript, got %+v", c.History)
+	}
+}
+
 func TestSendAppendsHistory(t *testing.T) {
 	c := New(&inference.MockGenerator{}, inference.DefaultOptions())
 	ans, err := c.Send("hello")
