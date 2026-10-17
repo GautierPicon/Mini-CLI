@@ -21,14 +21,14 @@ and never converts weights blindly.
 Prerequisites:
 
 - Go >= 1.22 (tested with 1.27.1).
-- Python 3.11+ with the `mini-llm` venv for real inference:
+- Python 3.11+ with the `Mini-LLM` venv for real inference:
   ```
-  cd ../mini-llm
+  cd ../Mini-LLM
   uv sync
   ```
 - Model files: native `models/<dir>/` (`*.pt` + `tok.json`) or an HF export
   (`config.json` + `model.safetensors` + `tokenizer.json`), both produced by
-  [Mini-LLM](../mini-llm).
+  [Mini-LLM](../Mini-LLM).
 
 ```
 cd Mini-CLI
@@ -38,9 +38,9 @@ go build -o mini ./cmd/mini
 # mock (no model needed)
 ./mini run --mock "Hello"
 
-# real local model (the engine and python are auto-detected from ../mini-llm)
-./mini run --model ../mini-llm/models/16k "What is 2+2?" --max-tokens 32
-./mini chat --model ../mini-llm/models/16k
+# real local model (the engine and python are auto-detected from ../Mini-LLM)
+./mini run --model ../Mini-LLM/models/16k "What is 2+2?" --max-tokens 32
+./mini chat --model ../Mini-LLM/models/16k
 ```
 
 Usage, configuration file, paths, inference details and model storage live in the

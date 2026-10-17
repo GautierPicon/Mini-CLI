@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/GautierPicon/mini-cli/internal/cli"
+	"github.com/Mini-llm-lab/Mini-CLI/internal/cli"
 )
 
 func main() {

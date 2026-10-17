@@ -12,11 +12,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/GautierPicon/mini-cli/internal/chat"
-	"github.com/GautierPicon/mini-cli/internal/config"
-	"github.com/GautierPicon/mini-cli/internal/inference"
-	"github.com/GautierPicon/mini-cli/internal/model"
-	"github.com/GautierPicon/mini-cli/internal/tui"
+	"github.com/Mini-llm-lab/Mini-CLI/internal/chat"
+	"github.com/Mini-llm-lab/Mini-CLI/internal/config"
+	"github.com/Mini-llm-lab/Mini-CLI/internal/inference"
+	"github.com/Mini-llm-lab/Mini-CLI/internal/model"
+	"github.com/Mini-llm-lab/Mini-CLI/internal/tui"
 )
 
 func Execute() error {
@@ -69,7 +69,7 @@ func resolveGenerator(cfg config.Config, modelFlag string, useMock bool) (infere
 }
 
 func engineHint() string {
-	return " (see Mini-CLI README: pip install torch tokenizers transformers, or uv sync in mini-llm)"
+	return " (see Mini-CLI README: pip install torch tokenizers transformers, or uv sync in Mini-LLM)"
 }
 
 func generationOptions(cfg config.Config, maxTokens int, temperature float64) inference.GenerationOptions {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GautierPicon/mini-cli/internal/config"
+	"github.com/Mini-llm-lab/Mini-CLI/internal/config"
 )
 
 func TestRootHasExpectedCommands(t *testing.T) {

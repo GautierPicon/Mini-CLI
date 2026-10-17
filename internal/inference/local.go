@@ -197,15 +197,15 @@ func candidateVenvPythons() []string {
 	}
 	if exe, err := os.Executable(); err == nil {
 		d := filepath.Dir(exe)
-		add(filepath.Join(d, "..", "mini-llm", ".venv", "bin", "python"))
-		add(filepath.Join(d, "..", "..", "mini-llm", ".venv", "bin", "python"))
-		add(filepath.Join(d, "..", "..", "Mini", "mini-llm", ".venv", "bin", "python"))
+		add(filepath.Join(d, "..", "Mini-LLM", ".venv", "bin", "python"))
+		add(filepath.Join(d, "..", "..", "Mini-LLM", ".venv", "bin", "python"))
+		add(filepath.Join(d, "..", "..", "Mini", "Mini-LLM", ".venv", "bin", "python"))
 	}
 	if cwd, err := os.Getwd(); err == nil {
-		add(filepath.Join(cwd, "..", "mini-llm", ".venv", "bin", "python"))
-		add(filepath.Join(cwd, "mini-llm", ".venv", "bin", "python"))
-		add(filepath.Join(cwd, "..", "Mini", "mini-llm", ".venv", "bin", "python"))
-		add(filepath.Join(cwd, "..", "mini-llm", ".venv", "bin", "python3"))
+		add(filepath.Join(cwd, "..", "Mini-LLM", ".venv", "bin", "python"))
+		add(filepath.Join(cwd, "Mini-LLM", ".venv", "bin", "python"))
+		add(filepath.Join(cwd, "..", "Mini", "Mini-LLM", ".venv", "bin", "python"))
+		add(filepath.Join(cwd, "..", "Mini-LLM", ".venv", "bin", "python3"))
 	}
 	add("/Users/gautierpicon/Projets/Mini/mini-llm/.venv/bin/python")
 	return out
@@ -216,25 +216,25 @@ func findMiniLLMSrc(enginePath string) string {
 	if enginePath != "" {
 		abs, _ := filepath.Abs(enginePath)
 		candidates = append(candidates,
-			filepath.Join(filepath.Dir(abs), "..", "..", "mini-llm", "src"),
-			filepath.Join(filepath.Dir(abs), "..", "mini-llm", "src"),
+			filepath.Join(filepath.Dir(abs), "..", "..", "Mini-LLM", "src"),
+			filepath.Join(filepath.Dir(abs), "..", "Mini-LLM", "src"),
 		)
 	}
 	if exe, err := os.Executable(); err == nil {
 		d := filepath.Dir(exe)
 		candidates = append(candidates,
-			filepath.Join(d, "..", "mini-llm", "src"),
-			filepath.Join(d, "..", "..", "mini-llm", "src"),
+			filepath.Join(d, "..", "Mini-LLM", "src"),
+			filepath.Join(d, "..", "..", "Mini-LLM", "src"),
 		)
 	}
 	if cwd, err := os.Getwd(); err == nil {
 		candidates = append(candidates,
-			filepath.Join(cwd, "..", "mini-llm", "src"),
-			filepath.Join(cwd, "mini-llm", "src"),
-			filepath.Join(cwd, "..", "Mini", "mini-llm", "src"),
+			filepath.Join(cwd, "..", "Mini-LLM", "src"),
+			filepath.Join(cwd, "Mini-LLM", "src"),
+			filepath.Join(cwd, "..", "Mini", "Mini-LLM", "src"),
 		)
 	}
-	candidates = append(candidates, "/Users/gautierpicon/Projets/Mini/mini-llm/src")
+	candidates = append(candidates, "/Users/gautierpicon/Projets/Mini/Mini-LLM/src")
 	for _, c := range candidates {
 		clean := filepath.Clean(c)
 		if st, err := os.Stat(filepath.Join(clean, "mini_llm")); err == nil && st.IsDir() {

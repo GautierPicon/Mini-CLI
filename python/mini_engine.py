@@ -38,7 +38,7 @@ def load_native(model_dir: Path, device: str):
         from mini_llm.config import resolve_device
     except ImportError as e:
         raise RuntimeError(
-            "mini_llm not importable. Run with MINI_PYTHON pointing at the mini-llm uv venv "
+            "mini_llm not importable. Run with MINI_PYTHON pointing at the Mini-LLM uv venv "
             "(uv run -- python Mini-CLI/python/mini_engine.py) or set PYTHONPATH to mini-llm/src. "
             f"({e})"
         )

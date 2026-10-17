@@ -3,7 +3,7 @@ package chat
 import (
 	"testing"
 
-	"github.com/GautierPicon/mini-cli/internal/inference"
+	"github.com/Mini-llm-lab/Mini-CLI/internal/inference"
 )
 
 type recordingGenerator struct {

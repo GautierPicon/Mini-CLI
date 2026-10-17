@@ -9,8 +9,8 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/GautierPicon/mini-cli/internal/chat"
-	"github.com/GautierPicon/mini-cli/internal/inference"
+	"github.com/Mini-llm-lab/Mini-CLI/internal/chat"
+	"github.com/Mini-llm-lab/Mini-CLI/internal/inference"
 )
 
 type answerMsg struct {
