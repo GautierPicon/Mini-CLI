@@ -1,4 +1,5 @@
 /mini
 /dist/
+__pycache__/
 *.log
 .DS_Store

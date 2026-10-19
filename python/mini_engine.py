@@ -28,7 +28,7 @@ def detect_model_dir(d: Path):
         return "hf"
     pts = sorted(glob.glob(str(d / "*.pt")))
     pts = [p for p in pts if not p.endswith(".state.pt")]
-    if pts and (d / "tok.json").exists():
+    if pts and ((d / "tok.json").exists() or (d.parent / "tok.json").exists()):
         return "native-pt"
     return "unknown"
 
@@ -95,7 +95,7 @@ def do_load(model_dir: str, device: str):
     if kind == "hf":
         return load_hf(d, device or "auto")
     raise RuntimeError(
-        f"unknown model format in {model_dir}: need (config.json + model.safetensors) or (*.pt + tok.json)"
+        f"unknown model format in {model_dir}: need (config.json + model.safetensors) or (*.pt + tok.json, here or one folder up)"
     )
 
 def do_generate(messages, max_tokens, temperature, top_k, rep_penalty):
