@@ -19,7 +19,6 @@ run-mock:
 clean:
 	rm -f $(BINARY)
 
-# cross-compile smoke (no python needed for build)
 build-all:
 	GOOS=linux GOARCH=amd64 go build -o dist/mini-linux-amd64 $(PKG)
 	GOOS=darwin GOARCH=arm64 go build -o dist/mini-darwin-arm64 $(PKG)

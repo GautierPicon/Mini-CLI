@@ -102,8 +102,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			opts := m.conv.Options
 			gen := m.conv.Generator
 			return m, tea.Batch(m.spinner.Tick, func() tea.Msg {
-				// Each question is sent on its own: earlier turns make these
-				// models anchor on their own answers and degrade.
 				text, err := gen.Generate([]inference.Message{{Role: "user", Content: q}}, opts)
 				if err == nil {
 					m.conv.History = append(m.conv.History, inference.Message{Role: "assistant", Content: strings.TrimSpace(text)})
