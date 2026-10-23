@@ -4,24 +4,65 @@ import glob
 import json
 import os
 import sys
+from datetime import date
 from pathlib import Path
 
 def log(*a):
     print(*a, file=sys.stderr, flush=True)
 
-STATE = {"model": None, "tok": None, "eos": None, "ctx": 512, "kind": None, "dev": "cpu"}
+V2_LINEAGE = "digit32k"
+V2_DEFAULT_SYSTEM = (
+    "You are Mini, a small AI assistant. Answer briefly and directly. "
+    "Use markdown lists when a list helps. You can do basic arithmetic."
+)
+
+STATE = {"model": None, "tok": None, "eos": None, "ctx": 512, "kind": None, "dev": "cpu", "lineage": ""}
 
 def format_conversation(messages):
     parts = []
     for m in messages:
         role = m.get("role", "user")
         content = (m.get("content") or "").strip()
-        if role == "assistant":
+        if role == "system":
+            parts.append(f"System: {content}\n")
+        elif role == "assistant":
             parts.append(f"Assistant: {content}\n")
         else:
             parts.append(f"User: {content}\n")
     parts.append("Assistant:")
     return "".join(parts)
+
+def with_system(messages):
+    """v2 lineages always see a System line: the default persona + today's date."""
+    if STATE.get("lineage") != V2_LINEAGE:
+        return messages
+    if any((m.get("role") or "").lower() == "system" for m in messages):
+        return messages
+    today = date.today().strftime("%b %d, %Y")
+    return [{"role": "system", "content": f"Today is {today}.\n\n{V2_DEFAULT_SYSTEM}"}] + list(messages or [])
+
+def fit_ids(tok, messages, ctx):
+    """Tokenize the conversation, freeing room by dropping the oldest turns, then by
+    trimming the pending question — never the System header."""
+    messages = list(messages)
+    while True:
+        ids = tok.encode(format_conversation(messages))
+        n = len(ids.ids) if hasattr(ids, "ids") else len(ids)
+        if n <= ctx - 1 or len(messages) <= 1:
+            return ids
+        system_first = (messages[0].get("role") or "").lower() == "system"
+        drop_at = 1 if system_first and len(messages) > 2 else 0
+        if len(messages) <= 2 or not system_first and len(messages) == 1:
+            last = dict(messages[-1])
+            last["content"] = last["content"][len(last["content"]) // 10:]
+            messages[-1] = last
+        else:
+            del messages[drop_at]
+
+def v2_defaults():
+    if STATE.get("lineage") != V2_LINEAGE:
+        return 256, 1.15
+    return 512, 1.1
 
 def detect_model_dir(d: Path):
     if (d / "model.safetensors").exists() and (d / "config.json").exists():
@@ -57,7 +98,10 @@ def load_native(model_dir: Path, device: str):
     model.eval()
     tok = load_tokenizer(str(ckpt))
     eos = tok.token_to_id("<eos>")
-    STATE.update(model=model, tok=tok, eos=eos, ctx=cfg.ctx, kind="native-pt", dev=dev)
+    STATE.update(
+        model=model, tok=tok, eos=eos, ctx=cfg.ctx, kind="native-pt", dev=dev,
+        lineage=getattr(cfg, "lineage", ""),
+    )
     return ckpt.name, cfg.ctx
 
 def load_hf(model_dir: Path, device: str):
@@ -82,7 +126,10 @@ def load_hf(model_dir: Path, device: str):
     if eos is None:
         eos = 0
     ctx = getattr(getattr(model, "config", None), "max_position_embeddings", 512) or 512
-    STATE.update(model=model, tok=tok, eos=eos, ctx=ctx, kind="hf", dev=dev)
+    STATE.update(
+        model=model, tok=tok, eos=eos, ctx=ctx, kind="hf", dev=dev,
+        lineage=str(getattr(model.config, "lineage", "") or ""),
+    )
     return model_dir.name, ctx
 
 def do_load(model_dir: str, device: str):
@@ -101,32 +148,34 @@ def do_load(model_dir: str, device: str):
 def do_generate(messages, max_tokens, temperature, top_k, rep_penalty):
     if STATE["model"] is None:
         raise RuntimeError("no model loaded (send load first)")
-    prompt = format_conversation(messages or [])
+    messages = with_system(list(messages or []))
     kind = STATE["kind"]
+    if not max_tokens:
+        max_tokens = v2_defaults()[0]
+    if not rep_penalty:
+        rep_penalty = v2_defaults()[1]
     if kind == "native-pt":
         import torch
 
         tok, model, eos, dev, ctx = STATE["tok"], STATE["model"], STATE["eos"], STATE["dev"], STATE["ctx"]
-        ids = tok.encode(prompt).ids
-        if len(ids) > ctx - 1:
-            ids = ids[-(ctx - 1):]
+        enc = fit_ids(tok, messages, ctx)
+        ids = enc.ids if hasattr(enc, "ids") else list(enc)
         with torch.no_grad():
             out = model.generate(
                 torch.tensor([ids], device=dev),
-                n=int(max_tokens or 256),
+                n=int(max_tokens),
                 temp=float(temperature or 0.5),
                 top_k=int(top_k or 40),
                 eos=eos,
-                rep_penalty=float(rep_penalty or 1.15),
+                rep_penalty=float(rep_penalty),
             )
         return tok.decode(out[0, len(ids):].tolist()).strip()
     else:
         import torch
 
         tok, model, eos, ctx = STATE["tok"], STATE["model"], STATE["eos"], STATE["ctx"]
-        ids = tok.encode(prompt)
-        if len(ids) > ctx - 1:
-            ids = ids[-(ctx - 1):]
+        enc = fit_ids(tok, messages, ctx)
+        ids = enc.ids if hasattr(enc, "ids") else list(enc)
         x = torch.tensor([ids])
         try:
             dev = next(model.parameters()).device
