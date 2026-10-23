@@ -31,6 +31,8 @@ func HistoryToPrompt(messages []Message) string {
 	out := ""
 	for _, m := range messages {
 		switch m.Role {
+		case "system":
+			out += "System: " + trimSpace(m.Content) + "\n"
 		case "assistant":
 			out += "Assistant: " + trimSpace(m.Content) + "\n"
 		default:
