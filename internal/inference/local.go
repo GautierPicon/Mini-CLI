@@ -207,7 +207,9 @@ func candidateVenvPythons() []string {
 		add(filepath.Join(cwd, "..", "Mini", "Mini-LLM", ".venv", "bin", "python"))
 		add(filepath.Join(cwd, "..", "Mini-LLM", ".venv", "bin", "python3"))
 	}
-	add("/Users/gautierpicon/Projets/Mini/mini-llm/.venv/bin/python")
+	if home, err := os.UserHomeDir(); err == nil {
+		add(filepath.Join(home, "Projets", "Mini", "mini-llm", ".venv", "bin", "python"))
+	}
 	return out
 }
 
@@ -234,7 +236,9 @@ func findMiniLLMSrc(enginePath string) string {
 			filepath.Join(cwd, "..", "Mini", "Mini-LLM", "src"),
 		)
 	}
-	candidates = append(candidates, "/Users/gautierpicon/Projets/Mini/Mini-LLM/src")
+	if home, err := os.UserHomeDir(); err == nil {
+		candidates = append(candidates, filepath.Join(home, "Projets", "Mini", "Mini-LLM", "src"))
+	}
 	for _, c := range candidates {
 		clean := filepath.Clean(c)
 		if st, err := os.Stat(filepath.Join(clean, "mini_llm")); err == nil && st.IsDir() {
