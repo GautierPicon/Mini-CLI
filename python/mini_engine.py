@@ -10,10 +10,10 @@ from pathlib import Path
 def log(*a):
     print(*a, file=sys.stderr, flush=True)
 
-V2_LINEAGE = "digit32k"
-V2_DEFAULT_SYSTEM = (
+DEFAULT_SYSTEM_TEXT = (
     "You are Mini, a small AI assistant. Answer briefly and directly. "
-    "Use markdown lists when a list helps. You can do basic arithmetic."
+    "Use markdown when it helps: headings, lists, and bold key points. "
+    "You can do basic arithmetic."
 )
 
 STATE = {"model": None, "tok": None, "eos": None, "ctx": 512, "kind": None, "dev": "cpu", "lineage": ""}
@@ -33,17 +33,14 @@ def format_conversation(messages):
     return "".join(parts)
 
 def with_system(messages):
-    """v2 lineages always see a System line: the default persona + today's date."""
-    if STATE.get("lineage") != V2_LINEAGE:
+    if STATE.get("lineage") != "digit32k":
         return messages
     if any((m.get("role") or "").lower() == "system" for m in messages):
         return messages
     today = date.today().strftime("%b %d, %Y")
-    return [{"role": "system", "content": f"Today is {today}.\n\n{V2_DEFAULT_SYSTEM}"}] + list(messages or [])
+    return [{"role": "system", "content": f"Today is {today}.\n\n{DEFAULT_SYSTEM_TEXT}"}] + list(messages or [])
 
 def fit_ids(tok, messages, ctx):
-    """Tokenize the conversation, freeing room by dropping the oldest turns, then by
-    trimming the pending question — never the System header."""
     messages = list(messages)
     while True:
         ids = tok.encode(format_conversation(messages))
@@ -59,8 +56,8 @@ def fit_ids(tok, messages, ctx):
         else:
             del messages[drop_at]
 
-def v2_defaults():
-    if STATE.get("lineage") != V2_LINEAGE:
+def generation_defaults():
+    if STATE.get("lineage") != "digit32k":
         return 256, 1.15
     return 512, 1.1
 
@@ -151,9 +148,9 @@ def do_generate(messages, max_tokens, temperature, top_k, rep_penalty):
     messages = with_system(list(messages or []))
     kind = STATE["kind"]
     if not max_tokens:
-        max_tokens = v2_defaults()[0]
+        max_tokens = generation_defaults()[0]
     if not rep_penalty:
-        rep_penalty = v2_defaults()[1]
+        rep_penalty = generation_defaults()[1]
     if kind == "native-pt":
         import torch
 
